@@ -15,6 +15,16 @@ final class GameEngineLibTests: XCTestCase {
     }
   }
 
+  func testEveryLaneBandIsUsedBeforeTheBagRepeats() {
+    var director = SpawnDirector(seed: 73)
+    let positions = (0..<7).map {
+      director.nextPlan(elapsedTime: Double($0), score: 0).horizontalPosition
+    }
+    let laneWidth = 0.82 / 7.0
+    let lanes = Set(positions.map { Int(($0 - 0.09) / laneWidth) })
+    XCTAssertEqual(lanes.count, 7)
+  }
+
   func testScoringInventoryAndExtraLives() {
     var session = GameSession()
     XCTAssertTrue(session.slicePumpkin())

@@ -28,16 +28,14 @@ public struct SpawnPlan: Equatable, Codable, Sendable {
 public struct SpawnDirector: Sendable {
   private var random: SeededRandomNumberGenerator
   private var previousLane: Int?
+  private var laneBag: [Int] = []
   private let laneCount = 7
 
   public init(seed: UInt64) { random = SeededRandomNumberGenerator(seed: seed) }
 
   public mutating func nextPlan(elapsedTime: Double, score: Int) -> SpawnPlan {
     let progress = min(1, max(elapsedTime / 150, Double(score) / 25_000))
-    var lane = random.integer(in: 0..<laneCount)
-    if lane == previousLane {
-      lane = (lane + 1 + random.integer(in: 0..<(laneCount - 1))) % laneCount
-    }
+    let lane = nextLane()
     previousLane = lane
     let laneWidth = 0.82 / Double(laneCount)
     let jitter = random.value(in: (-laneWidth * 0.32)...(laneWidth * 0.32))
@@ -55,6 +53,23 @@ public struct SpawnDirector: Sendable {
       verticalOffset: random.value(in: 0...210), speed: attributes.speed,
       horizontalDrift: attributes.drift, scale: attributes.scale,
       animationRate: random.value(in: 0.12...0.23), archetype: archetype)
+  }
+
+  /// Uses every lane once in a shuffled order before refilling the bag. This
+  /// preserves unpredictability while preventing visually repetitive clusters.
+  private mutating func nextLane() -> Int {
+    if laneBag.isEmpty {
+      laneBag = Array(0..<laneCount)
+      for index in stride(from: laneBag.count - 1, through: 1, by: -1) {
+        laneBag.swapAt(index, random.integer(in: 0..<(index + 1)))
+      }
+      if laneBag.last == previousLane,
+        let replacement = laneBag.firstIndex(where: { $0 != previousLane })
+      {
+        laneBag.swapAt(replacement, laneBag.count - 1)
+      }
+    }
+    return laneBag.removeLast()
   }
 
   private mutating func chooseArchetype(progress: Double) -> PumpkinArchetype {
