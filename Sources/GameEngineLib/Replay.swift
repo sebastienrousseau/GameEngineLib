@@ -40,7 +40,8 @@ public enum ReplayVerifier {
     guard replay.rulesVersion == GameSimulation.rulesVersion else {
       throw ReplayVerificationError.unsupportedRulesVersion(replay.rulesVersion)
     }
-    guard zip(replay.commands, replay.commands.dropFirst()).allSatisfy({ $0.tick <= $1.tick }) else {
+    guard zip(replay.commands, replay.commands.dropFirst()).allSatisfy({ $0.tick <= $1.tick })
+    else {
       throw ReplayVerificationError.commandOrder
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import GameEngineLib
 
 final class GameEngineLibTests: XCTestCase {
@@ -60,7 +61,8 @@ final class GameEngineLibTests: XCTestCase {
       case 30: actions = [.shriek]
       default: actions = [.move(x: tick.isMultiple(of: 2) ? 1 : -1, y: -0.2)]
       }
-      XCTAssertEqual(first.step(InputFrame(actions: actions)), second.step(InputFrame(actions: actions)))
+      XCTAssertEqual(
+        first.step(InputFrame(actions: actions)), second.step(InputFrame(actions: actions)))
       XCTAssertEqual(first.state, second.state)
       XCTAssertEqual(first.digest, second.digest)
       if first.state.session.isGameOver { break }
@@ -119,7 +121,11 @@ final class GameEngineLibTests: XCTestCase {
     XCTAssertEqual(destroyed.count, 3)
     XCTAssertEqual(simulation.state.session.slices, slices - 3)
     XCTAssertTrue(1...3 ~= simulation.state.pumpkins.count, "A paced wave begins after the clear")
-    XCTAssertTrue(events.contains { if case .waveStarted = $0 { return true }; return false })
+    XCTAssertTrue(
+      events.contains {
+        if case .waveStarted = $0 { return true }
+        return false
+      })
   }
 
   func testShriekConsumesOneChargeAndCanDestroyMultiplePumpkins() {
@@ -219,7 +225,8 @@ final class GameEngineLibTests: XCTestCase {
   func testEarlyWavesUseAccessiblePatterns() {
     var composer = WaveComposer(seed: 11)
     for _ in 0..<30 {
-      XCTAssertTrue([.stagger, .sweep, .breathingSpace].contains(composer.nextWave(progress: 0).pattern))
+      XCTAssertTrue(
+        [.stagger, .sweep, .breathingSpace].contains(composer.nextWave(progress: 0).pattern))
     }
   }
 
@@ -262,7 +269,7 @@ final class GameEngineLibTests: XCTestCase {
     var events: [GameEvent] = []
     for _ in 0..<10 { events += simulation.step() }
     let collected = events.compactMap { event -> (Int, Int)? in
-      if case let .pickupCollected(_, kind, points) = event { return (kind, points) }
+      if case .pickupCollected(_, let kind, let points) = event { return (kind, points) }
       return nil
     }
     XCTAssertFalse(collected.isEmpty)
@@ -306,7 +313,7 @@ final class GameEngineLibTests: XCTestCase {
     router.set(.dash, pressed: true)
     let first = router.nextFrame().actions
     XCTAssertEqual(first.count, 2)
-    guard case let .move(x, y) = first[0] else { return XCTFail("Expected movement") }
+    guard case .move(let x, let y) = first[0] else { return XCTFail("Expected movement") }
     XCTAssertEqual((x * x + y * y).squareRoot(), 1, accuracy: 0.000_001)
     XCTAssertEqual(first[1], .dash(x: x, y: y))
     XCTAssertEqual(router.nextFrame().actions, [.move(x: x, y: y)])
@@ -338,5 +345,39 @@ final class GameEngineLibTests: XCTestCase {
   func testBossRaidStartsWithArmoredTargets() {
     let simulation = GameSimulation(seed: 1, mode: .bossRaid)
     XCTAssertTrue(simulation.state.pumpkins.contains(where: { $0.kind == .armored }))
+  }
+
+  func testSettingsDecodeLegacyPayloadWithAccessibleDefaults() throws {
+    let data = Data(
+      "{\"musicEnabled\":false,\"effectsEnabled\":true,\"vibrationEnabled\":false}".utf8)
+    let settings = try JSONDecoder().decode(GameSettings.self, from: data)
+    XCTAssertFalse(settings.musicEnabled)
+    XCTAssertTrue(settings.captionsEnabled)
+    XCTAssertFalse(settings.reducedMotionEnabled)
+    XCTAssertTrue(settings.screenShakeEnabled)
+    XCTAssertEqual(settings.inputSensitivity, 1)
+  }
+
+  func testSettingsClampInputSensitivity() {
+    XCTAssertEqual(GameSettings(inputSensitivity: -4).inputSensitivity, 0.5)
+    XCTAssertEqual(GameSettings(inputSensitivity: 9).inputSensitivity, 1.5)
+  }
+
+  func testProgressionAwardsGoalsUnlocksAndPerModeBestScores() {
+    var progress = PlayerProgress(experience: 480)
+    let summary = RunSummary(
+      mode: .moonRush,
+      score: 5_000,
+      statistics: SessionStatistics(destroyed: 30, nearMisses: 6, bestCombo: 9),
+      durationTicks: 3_600,
+      replayDigest: 42,
+      assisted: false
+    )
+    let update = ProgressionSystem.apply(summary, to: &progress)
+    XCTAssertGreaterThanOrEqual(progress.level, 2)
+    XCTAssertEqual(progress.bestScores[.moonRush], 5_000)
+    XCTAssertTrue(update.isNewBest)
+    XCTAssertFalse(update.completedMissionIDs.isEmpty)
+    XCTAssertTrue(progress.unlockedCosmeticIDs.contains("trail.ember"))
   }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 - 2026-08-03
+
+- Add versioned player progression with missions, levels, rewards, and cosmetic unlocks.
+- Add per-mode run summaries and replay digests for trusted score submission.
+- Expand accessible control settings with legacy-save migration.
+- Add bounded input sensitivity and assist-mode difficulty scaling.
+- Add configurable simulation difficulty without coupling rules to display size.
+- Enforce strict Swift formatting and collect test coverage in CI.
+
 ## 0.3.0 - 2026-08-03
 
 - Add paced wave scheduling to the authoritative simulation.

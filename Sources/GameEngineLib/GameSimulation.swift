@@ -63,11 +63,11 @@ public struct GameSimulation: Sendable {
     }
 
     let movement = frame.actions.compactMap { action -> Vector2? in
-      if case let .move(x, y) = action { return Vector2(x: x, y: y) }
+      if case .move(let x, let y) = action { return Vector2(x: x, y: y) }
       return nil
     }.last
     let directTarget = frame.actions.compactMap { action -> Vector2? in
-      if case let .moveTo(x, y) = action { return Vector2(x: x, y: y) }
+      if case .moveTo(let x, let y) = action { return Vector2(x: x, y: y) }
       return nil
     }.last
     if let directTarget {
@@ -80,7 +80,7 @@ public struct GameSimulation: Sendable {
 
     for action in frame.actions {
       switch action {
-      case let .dash(x, y): performDash(Vector2(x: x, y: y), events: &events)
+      case .dash(let x, let y): performDash(Vector2(x: x, y: y), events: &events)
       case .shriek: performShriek(events: &events)
       case .move, .moveTo, .pause, .resume, .togglePause: break
       }
@@ -101,10 +101,10 @@ public struct GameSimulation: Sendable {
   /// Stable digest over quantized authoritative state. It intentionally avoids
   /// JSON encoding and floating-point byte layouts so Apple and Wasm can compare it.
   public var digest: UInt64 {
-    var hash: UInt64 = 0xcbf29ce484222325
+    var hash: UInt64 = 0xcbf2_9ce4_8422_2325
     func append(_ value: UInt64) {
       hash ^= value
-      hash &*= 0x100000001b3
+      hash &*= 0x100_0000_01b3
     }
     func quantized(_ value: Double) -> UInt64 {
       UInt64(bitPattern: Int64((value * 1_000_000).rounded()))
@@ -394,7 +394,9 @@ public struct GameSimulation: Sendable {
     let kind: PumpkinKind
     if plan.archetype == .heavy || (state.mode == .bossRaid && nextEntityID.isMultiple(of: 3)) {
       kind = .armored
-    } else if state.tick > UInt64(configuration.ticksPerSecond * 20), nextEntityID.isMultiple(of: 11) {
+    } else if state.tick > UInt64(configuration.ticksPerSecond * 20),
+      nextEntityID.isMultiple(of: 11)
+    {
       kind = .cursed
     } else {
       kind = .target
@@ -402,7 +404,10 @@ public struct GameSimulation: Sendable {
     let pumpkin = PumpkinState(
       id: nextEntityID,
       position: Vector2(x: plan.horizontalPosition, y: -0.08 - plan.verticalOffset / 760),
-      velocity: Vector2(x: plan.horizontalDrift / 320, y: plan.speed / 760),
+      velocity: Vector2(
+        x: plan.horizontalDrift / 320 * configuration.difficultyScale,
+        y: plan.speed / 760 * configuration.difficultyScale
+      ),
       radius: 0.04 * plan.scale,
       archetype: plan.archetype,
       kind: kind,
@@ -445,8 +450,8 @@ private func pumpkinKindIndex(_ kind: PumpkinKind) -> Int {
   }
 }
 
-private extension UInt64 {
-  init(_ value: Int, bitPatternFallback: Bool) {
+extension UInt64 {
+  fileprivate init(_ value: Int, bitPatternFallback: Bool) {
     self = bitPatternFallback ? UInt64(bitPattern: Int64(value)) : UInt64(value)
   }
 }
@@ -461,11 +466,14 @@ private func distance(_ lhs: Vector2, _ rhs: Vector2) -> Double {
   return (dx * dx + dy * dy).squareRoot()
 }
 
-private func distanceFromPoint(_ point: Vector2, toSegmentFrom start: Vector2, to end: Vector2) -> Double {
+private func distanceFromPoint(_ point: Vector2, toSegmentFrom start: Vector2, to end: Vector2)
+  -> Double
+{
   let segment = Vector2(x: end.x - start.x, y: end.y - start.y)
   let lengthSquared = segment.x * segment.x + segment.y * segment.y
   guard lengthSquared > 0.000_000_1 else { return distance(point, start) }
-  let projection = ((point.x - start.x) * segment.x + (point.y - start.y) * segment.y) / lengthSquared
+  let projection =
+    ((point.x - start.x) * segment.x + (point.y - start.y) * segment.y) / lengthSquared
   let t = min(1, max(0, projection))
   return distance(point, Vector2(x: start.x + segment.x * t, y: start.y + segment.y * t))
 }

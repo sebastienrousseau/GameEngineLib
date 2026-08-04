@@ -94,7 +94,19 @@ public struct SessionStatistics: Equatable, Codable, Sendable {
   public var nearMisses = 0
   public var bestCombo = 0
 
-  public init() {}
+  public init(
+    destroyed: Int = 0,
+    avoided: Int = 0,
+    collisions: Int = 0,
+    nearMisses: Int = 0,
+    bestCombo: Int = 0
+  ) {
+    self.destroyed = max(0, destroyed)
+    self.avoided = max(0, avoided)
+    self.collisions = max(0, collisions)
+    self.nearMisses = max(0, nearMisses)
+    self.bestCombo = max(0, bestCombo)
+  }
 }
 
 public struct GameState: Equatable, Codable, Sendable {
@@ -151,7 +163,6 @@ public struct GameState: Equatable, Codable, Sendable {
     self.shriekRechargeProgressTicks = max(0, shriekRechargeProgressTicks)
   }
 
-
   public var isGameOver: Bool { hasEnded || session.isGameOver }
 }
 
@@ -190,6 +201,7 @@ public struct SimulationConfiguration: Equatable, Codable, Sendable {
   public var frenzyDurationTicks: Int
   public var sliceRechargeIntervalTicks: Int
   public var shriekRechargeIntervalTicks: Int
+  public var difficultyScale: Double
 
   public init(
     ticksPerSecond: Int = 60,
@@ -204,7 +216,8 @@ public struct SimulationConfiguration: Equatable, Codable, Sendable {
     frenzyComboThreshold: Int = 6,
     frenzyDurationTicks: Int = 360,
     sliceRechargeIntervalTicks: Int = 360,
-    shriekRechargeIntervalTicks: Int = 180
+    shriekRechargeIntervalTicks: Int = 180,
+    difficultyScale: Double = 1
   ) {
     self.ticksPerSecond = max(1, ticksPerSecond)
     self.targetPumpkinCount = max(0, targetPumpkinCount)
@@ -219,6 +232,7 @@ public struct SimulationConfiguration: Equatable, Codable, Sendable {
     self.frenzyDurationTicks = max(1, frenzyDurationTicks)
     self.sliceRechargeIntervalTicks = max(1, sliceRechargeIntervalTicks)
     self.shriekRechargeIntervalTicks = max(1, shriekRechargeIntervalTicks)
+    self.difficultyScale = min(1.5, max(0.5, difficultyScale))
   }
 
   public static let standard = SimulationConfiguration()

@@ -11,9 +11,11 @@ public struct SpawnPlan: Equatable, Codable, Sendable {
   public let animationRate: Double
   public let archetype: PumpkinArchetype
 
-  public init(horizontalPosition: Double, verticalOffset: Double, speed: Double,
+  public init(
+    horizontalPosition: Double, verticalOffset: Double, speed: Double,
     horizontalDrift: Double, scale: Double, animationRate: Double,
-    archetype: PumpkinArchetype) {
+    archetype: PumpkinArchetype
+  ) {
     self.horizontalPosition = horizontalPosition
     self.verticalOffset = verticalOffset
     self.speed = speed
@@ -44,12 +46,17 @@ public struct SpawnDirector: Sendable {
     let baseSpeed = random.value(in: 78...126) * (1 + progress * 0.72)
     let attributes: (speed: Double, drift: Double, scale: Double)
     switch archetype {
-    case .standard: attributes = (baseSpeed, random.value(in: -12...12), random.value(in: 0.92...1.08))
-    case .swift: attributes = (baseSpeed * 1.32, random.value(in: -18...18), random.value(in: 0.78...0.94))
-    case .drifting: attributes = (baseSpeed * 0.92, random.value(in: -48...48), random.value(in: 0.9...1.05))
-    case .heavy: attributes = (baseSpeed * 0.78, random.value(in: -8...8), random.value(in: 1.1...1.28))
+    case .standard:
+      attributes = (baseSpeed, random.value(in: -12...12), random.value(in: 0.92...1.08))
+    case .swift:
+      attributes = (baseSpeed * 1.32, random.value(in: -18...18), random.value(in: 0.78...0.94))
+    case .drifting:
+      attributes = (baseSpeed * 0.92, random.value(in: -48...48), random.value(in: 0.9...1.05))
+    case .heavy:
+      attributes = (baseSpeed * 0.78, random.value(in: -8...8), random.value(in: 1.1...1.28))
     }
-    return SpawnPlan(horizontalPosition: horizontal,
+    return SpawnPlan(
+      horizontalPosition: horizontal,
       verticalOffset: random.value(in: 0...210), speed: attributes.speed,
       horizontalDrift: attributes.drift, scale: attributes.scale,
       animationRate: random.value(in: 0.12...0.23), archetype: archetype)

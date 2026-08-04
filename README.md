@@ -6,7 +6,8 @@
 A reusable, renderer-independent game engine written in pure Swift. It provides
 a deterministic fixed-timestep simulation, semantic input, replay verification,
 authored wave composition, fair spawning, five arcade modes, target roles,
-pickups, scoring, combo/frenzy tracking, settings, and local leaderboard ranking.
+pickups, scoring, combo/frenzy tracking, accessible settings, progression,
+missions, cosmetics, and local leaderboard ranking.
 
 `GameEngineLib` has no dependency on SwiftUI, SpriteKit, UIKit, AppKit, or game assets.
 It can be used by Apple, WebAssembly, server, and simulation targets.
@@ -16,7 +17,7 @@ It can be used by Apple, WebAssembly, server, and simulation targets.
 Add the package to `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/sebastienrousseau/GameEngineLib.git", from: "0.3.0")
+.package(url: "https://github.com/sebastienrousseau/GameEngineLib.git", from: "0.4.0")
 ```
 
 Then add `GameEngineLib` to the target dependencies.

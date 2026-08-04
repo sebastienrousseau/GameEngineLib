@@ -65,7 +65,8 @@ public struct WaveComposer: Sendable {
       var lanes = Array(0..<Self.laneCount)
       shuffle(&lanes)
       spawns = lanes.prefix(count).enumerated().map {
-        WaveSpawn(lane: $0.element, delayTicks: $0.offset * interval, archetype: archetype($0.offset))
+        WaveSpawn(
+          lane: $0.element, delayTicks: $0.offset * interval, archetype: archetype($0.offset))
       }
     case .sweep:
       spawns = (0..<Self.laneCount).map { index in
@@ -87,7 +88,8 @@ public struct WaveComposer: Sendable {
     case .zigzag:
       let lanes = direction > 0 ? [0, 2, 4, 6, 4, 2] : [6, 4, 2, 0, 2, 4]
       spawns = lanes.enumerated().map {
-        WaveSpawn(lane: $0.element, delayTicks: $0.offset * interval, archetype: archetype($0.offset))
+        WaveSpawn(
+          lane: $0.element, delayTicks: $0.offset * interval, archetype: archetype($0.offset))
       }
     case .breathingSpace:
       spawns = [
@@ -99,7 +101,8 @@ public struct WaveComposer: Sendable {
 
   private mutating func nextPattern(progress: Double) -> WavePattern {
     if patternBag.isEmpty {
-      var refill = progress < 0.15
+      var refill =
+        progress < 0.15
         ? [.stagger, .sweep, .breathingSpace]
         : WavePattern.allCases
       shuffle(&refill)
@@ -135,9 +138,10 @@ public enum WaveSafetyValidator {
     else { return false }
 
     for spawn in wave.spawns {
-      let occupied = Set(wave.spawns.lazy.filter {
-        abs($0.delayTicks - spawn.delayTicks) <= reactionTicks
-      }.map(\.lane))
+      let occupied = Set(
+        wave.spawns.lazy.filter {
+          abs($0.delayTicks - spawn.delayTicks) <= reactionTicks
+        }.map(\.lane))
       if occupied.count >= laneCount { return false }
     }
     return true
