@@ -4,8 +4,9 @@
 [![CI](https://github.com/sebastienrousseau/GameEngineLib/actions/workflows/swift.yml/badge.svg)](https://github.com/sebastienrousseau/GameEngineLib/actions)
 
 A reusable, renderer-independent game engine written in pure Swift. It provides
-deterministic random generation, fair spawn direction, scoring and inventory rules,
-combo tracking, settings models, and local leaderboard ranking.
+a deterministic fixed-timestep simulation, semantic input, replay verification,
+authored wave composition, fair spawning, scoring, combo tracking, settings, and
+local leaderboard ranking.
 
 `GameEngineLib` has no dependency on SwiftUI, SpriteKit, UIKit, AppKit, or game assets.
 It can be used by Apple, WebAssembly, server, and simulation targets.
@@ -15,7 +16,7 @@ It can be used by Apple, WebAssembly, server, and simulation targets.
 Add the package to `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/sebastienrousseau/GameEngineLib.git", from: "0.1.0")
+.package(url: "https://github.com/sebastienrousseau/GameEngineLib.git", from: "0.2.0")
 ```
 
 Then add `GameEngineLib` to the target dependencies.
@@ -25,15 +26,16 @@ Then add `GameEngineLib` to the target dependencies.
 ```swift
 import GameEngineLib
 
-var director = SpawnDirector(seed: 42)
-let plan = director.nextPlan(elapsedTime: 15, score: 800)
-
-var session = GameSession()
-session.avoidPumpkin()
+var simulation = GameSimulation(seed: 42)
+let events = simulation.step(
+  InputFrame(actions: [.move(x: 1, y: 0), .dash(x: 0, y: -1)])
+)
+let verifiableDigest = simulation.digest
 ```
 
-The same seed and inputs always produce the same spawn sequence, making balancing,
-automated testing, telemetry replay, and multiplayer verification practical.
+The same rules version, seed, and semantic input stream produce the same quantized
+state digest, making balancing, automated testing, replay, Web parity, and
+competitive-score verification practical.
 
 ## Development
 

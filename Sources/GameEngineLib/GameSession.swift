@@ -1,4 +1,4 @@
-public struct GameSession: Equatable, Sendable {
+public struct GameSession: Equatable, Codable, Sendable {
   public private(set) var score = 0
   public private(set) var lives = GameRules.initialLives
   public private(set) var slices = GameRules.initialSlices
@@ -26,9 +26,14 @@ public struct GameSession: Equatable, Sendable {
   }
 
   @discardableResult public mutating func boomPumpkin() -> Bool {
+    guard useBoomCharge() else { return false }
+    addScore(GameRules.destroyedPumpkinScore)
+    return true
+  }
+
+  @discardableResult public mutating func useBoomCharge() -> Bool {
     guard booms > 0, !isGameOver else { return false }
     booms -= 1
-    addScore(GameRules.destroyedPumpkinScore)
     return true
   }
 
