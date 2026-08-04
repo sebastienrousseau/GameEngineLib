@@ -11,7 +11,11 @@ public struct SeededRandomNumberGenerator: RandomNumberGenerator, Sendable {
     return value ^ (value >> 31)
   }
 
-  public mutating func unitInterval() -> Double { Double(next() >> 11) / Double(1 << 53) }
+  /// Uses an explicitly 64-bit denominator. `Int` is 32-bit on wasm32, where
+  /// evaluating `1 << 53` traps before the value can be converted to `Double`.
+  public mutating func unitInterval() -> Double {
+    Double(next() >> 11) / Double(UInt64(1) << 53)
+  }
   public mutating func value(in range: ClosedRange<Double>) -> Double {
     range.lowerBound + unitInterval() * (range.upperBound - range.lowerBound)
   }

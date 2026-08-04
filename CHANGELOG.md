@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 - 2026-08-03
+
+- Fix a 32-bit integer shift trap when constructing seeded simulations on WebAssembly.
+
 ## 0.4.0 - 2026-08-03
 
 - Add versioned player progression with missions, levels, rewards, and cosmetic unlocks.
