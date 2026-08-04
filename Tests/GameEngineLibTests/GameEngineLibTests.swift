@@ -305,6 +305,36 @@ final class GameEngineLibTests: XCTestCase {
     }
   }
 
+  func testOneHourSpiritZenSoakMaintainsFiniteBoundedState() {
+    var simulation = GameSimulation(seed: 0xC0FFEE, mode: .spiritZen)
+    let directions = [
+      InputAction.move(x: 1, y: 0),
+      .move(x: 0, y: 1),
+      .move(x: -1, y: 0),
+      .move(x: 0, y: -1),
+    ]
+    let oneHour = simulation.configuration.ticksPerSecond * 60 * 60
+    var maximumPumpkins = 0
+    for tick in 0..<oneHour {
+      var actions = [directions[(tick / 180) % directions.count]]
+      if tick.isMultiple(of: 240) { actions.append(.dash(x: 1, y: 0)) }
+      if tick.isMultiple(of: 600) { actions.append(.shriek) }
+      _ = simulation.step(InputFrame(actions: actions))
+      maximumPumpkins = max(maximumPumpkins, simulation.state.pumpkins.count)
+    }
+
+    XCTAssertEqual(simulation.state.tick, UInt64(oneHour))
+    XCTAssertFalse(simulation.state.isGameOver)
+    XCTAssertLessThanOrEqual(maximumPumpkins, 64)
+    XCTAssertTrue(simulation.state.ghost.position.x.isFinite)
+    XCTAssertTrue(simulation.state.ghost.position.y.isFinite)
+    XCTAssertTrue(
+      simulation.state.pumpkins.allSatisfy {
+        $0.position.x.isFinite && $0.position.y.isFinite
+          && $0.velocity.x.isFinite && $0.velocity.y.isFinite
+      })
+  }
+
   func testSemanticInputRouterNormalizesDigitalMovementAndEdgesActions() {
     var router = SemanticInputRouter()
     router.set(.right, pressed: true)
