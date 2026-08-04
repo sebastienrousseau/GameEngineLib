@@ -50,7 +50,7 @@ public enum ReplayVerifier {
       configuration: configuration
     )
     var commandIndex = 0
-    while simulation.state.tick < finalTick, !simulation.state.session.isGameOver {
+    while simulation.state.tick < finalTick, !simulation.state.isGameOver {
       let nextTick = simulation.state.tick + 1
       var actions: [InputAction] = []
       while commandIndex < replay.commands.count, replay.commands[commandIndex].tick == nextTick {

@@ -5,7 +5,15 @@ public struct GameSession: Equatable, Codable, Sendable {
   public private(set) var booms = GameRules.initialBooms
   public private(set) var pointsTowardExtraLife = 0
 
-  public init() {}
+  public init(
+    lives: Int = GameRules.initialLives,
+    slices: Int = GameRules.initialSlices,
+    booms: Int = GameRules.initialBooms
+  ) {
+    self.lives = max(1, lives)
+    self.slices = max(0, min(GameRules.maximumSlices, slices))
+    self.booms = max(0, min(GameRules.maximumBooms, booms))
+  }
   public var isGameOver: Bool { lives <= 0 }
 
   @discardableResult public mutating func avoidPumpkin() -> Int {
@@ -19,9 +27,14 @@ public struct GameSession: Equatable, Codable, Sendable {
   }
 
   @discardableResult public mutating func slicePumpkin() -> Bool {
+    guard useSliceCharge() else { return false }
+    addScore(GameRules.destroyedPumpkinScore)
+    return true
+  }
+
+  @discardableResult public mutating func useSliceCharge() -> Bool {
     guard slices > 0, !isGameOver else { return false }
     slices -= 1
-    addScore(GameRules.destroyedPumpkinScore)
     return true
   }
 

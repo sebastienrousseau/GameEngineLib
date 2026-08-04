@@ -18,12 +18,18 @@ public struct Vector2: Equatable, Codable, Sendable {
   }
 }
 
-public enum GameMode: String, CaseIterable, Codable, Sendable {
+public enum GameMode: String, CaseIterable, Hashable, Codable, Sendable {
   case classicRaid
   case moonRush
   case spiritZen
   case dailyHaunt
   case bossRaid
+}
+
+public enum PumpkinKind: String, Codable, Sendable {
+  case target
+  case armored
+  case cursed
 }
 
 public struct GhostState: Equatable, Codable, Sendable {
@@ -42,20 +48,53 @@ public struct PumpkinState: Identifiable, Equatable, Codable, Sendable {
   public var velocity: Vector2
   public let radius: Double
   public let archetype: PumpkinArchetype
+  public let kind: PumpkinKind
+  public var hitPoints: Int
+  public var nearMissAwarded: Bool
 
   public init(
     id: Int,
     position: Vector2,
     velocity: Vector2,
     radius: Double,
-    archetype: PumpkinArchetype
+    archetype: PumpkinArchetype,
+    kind: PumpkinKind = .target,
+    hitPoints: Int = 1,
+    nearMissAwarded: Bool = false
   ) {
     self.id = id
     self.position = position
     self.velocity = velocity
     self.radius = radius
     self.archetype = archetype
+    self.kind = kind
+    self.hitPoints = max(1, hitPoints)
+    self.nearMissAwarded = nearMissAwarded
   }
+}
+
+public struct PickupState: Identifiable, Equatable, Codable, Sendable {
+  public let id: Int
+  public let kind: Int
+  public var position: Vector2
+  public let speed: Double
+
+  public init(id: Int, kind: Int, position: Vector2, speed: Double) {
+    self.id = id
+    self.kind = kind
+    self.position = position
+    self.speed = max(0, speed)
+  }
+}
+
+public struct SessionStatistics: Equatable, Codable, Sendable {
+  public var destroyed = 0
+  public var avoided = 0
+  public var collisions = 0
+  public var nearMisses = 0
+  public var bestCombo = 0
+
+  public init() {}
 }
 
 public struct GameState: Equatable, Codable, Sendable {
@@ -66,7 +105,15 @@ public struct GameState: Equatable, Codable, Sendable {
   public var isPaused: Bool
   public var ghost: GhostState
   public var pumpkins: [PumpkinState]
+  public var pickup: PickupState?
   public var session: GameSession
+  public var statistics: SessionStatistics
+  public var waveIndex: Int
+  public var frenzyTicksRemaining: Int
+  public var remainingTicks: Int?
+  public var hasEnded: Bool
+  public var sliceRechargeProgressTicks: Int
+  public var shriekRechargeProgressTicks: Int
 
   public init(
     rulesVersion: Int,
@@ -76,7 +123,15 @@ public struct GameState: Equatable, Codable, Sendable {
     isPaused: Bool = false,
     ghost: GhostState = GhostState(),
     pumpkins: [PumpkinState] = [],
-    session: GameSession = GameSession()
+    pickup: PickupState? = nil,
+    session: GameSession = GameSession(),
+    statistics: SessionStatistics = SessionStatistics(),
+    waveIndex: Int = 0,
+    frenzyTicksRemaining: Int = 0,
+    remainingTicks: Int? = nil,
+    hasEnded: Bool = false,
+    sliceRechargeProgressTicks: Int = 0,
+    shriekRechargeProgressTicks: Int = 0
   ) {
     self.rulesVersion = rulesVersion
     self.seed = seed
@@ -85,8 +140,19 @@ public struct GameState: Equatable, Codable, Sendable {
     self.isPaused = isPaused
     self.ghost = ghost
     self.pumpkins = pumpkins
+    self.pickup = pickup
     self.session = session
+    self.statistics = statistics
+    self.waveIndex = max(0, waveIndex)
+    self.frenzyTicksRemaining = max(0, frenzyTicksRemaining)
+    self.remainingTicks = remainingTicks.map { max(0, $0) }
+    self.hasEnded = hasEnded
+    self.sliceRechargeProgressTicks = max(0, sliceRechargeProgressTicks)
+    self.shriekRechargeProgressTicks = max(0, shriekRechargeProgressTicks)
   }
+
+
+  public var isGameOver: Bool { hasEnded || session.isGameOver }
 }
 
 public enum GameEvent: Equatable, Codable, Sendable {
@@ -95,6 +161,15 @@ public enum GameEvent: Equatable, Codable, Sendable {
   case damaged(id: Int, remainingLives: Int)
   case dashed(from: Vector2, to: Vector2)
   case destroyed(id: Int, combo: Int, points: Int)
+  case armoredHit(id: Int, remainingHitPoints: Int)
+  case cursedTriggered(id: Int, remainingLives: Int)
+  case nearMiss(id: Int, points: Int)
+  case pickupSpawned(id: Int, kind: Int)
+  case pickupCollected(id: Int, kind: Int, points: Int)
+  case pickupMissed(id: Int)
+  case waveStarted(index: Int, pattern: WavePattern)
+  case frenzyStarted(durationTicks: Int)
+  case lastChance
   case shrieked(origin: Vector2, destroyedCount: Int)
   case paused
   case resumed
@@ -110,6 +185,11 @@ public struct SimulationConfiguration: Equatable, Codable, Sendable {
   public var ghostRadius: Double
   public var shriekRadius: Double
   public var minimumReactionTicks: Int
+  public var nearMissDistance: Double
+  public var frenzyComboThreshold: Int
+  public var frenzyDurationTicks: Int
+  public var sliceRechargeIntervalTicks: Int
+  public var shriekRechargeIntervalTicks: Int
 
   public init(
     ticksPerSecond: Int = 60,
@@ -119,7 +199,12 @@ public struct SimulationConfiguration: Equatable, Codable, Sendable {
     dashCooldownTicks: Int = 24,
     ghostRadius: Double = 0.04,
     shriekRadius: Double = 0.26,
-    minimumReactionTicks: Int = 36
+    minimumReactionTicks: Int = 36,
+    nearMissDistance: Double = 0.035,
+    frenzyComboThreshold: Int = 6,
+    frenzyDurationTicks: Int = 360,
+    sliceRechargeIntervalTicks: Int = 360,
+    shriekRechargeIntervalTicks: Int = 180
   ) {
     self.ticksPerSecond = max(1, ticksPerSecond)
     self.targetPumpkinCount = max(0, targetPumpkinCount)
@@ -129,6 +214,11 @@ public struct SimulationConfiguration: Equatable, Codable, Sendable {
     self.ghostRadius = max(0.001, ghostRadius)
     self.shriekRadius = max(0, shriekRadius)
     self.minimumReactionTicks = max(0, minimumReactionTicks)
+    self.nearMissDistance = max(0, nearMissDistance)
+    self.frenzyComboThreshold = max(2, frenzyComboThreshold)
+    self.frenzyDurationTicks = max(1, frenzyDurationTicks)
+    self.sliceRechargeIntervalTicks = max(1, sliceRechargeIntervalTicks)
+    self.shriekRechargeIntervalTicks = max(1, shriekRechargeIntervalTicks)
   }
 
   public static let standard = SimulationConfiguration()

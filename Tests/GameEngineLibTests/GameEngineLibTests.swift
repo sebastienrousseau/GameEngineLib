@@ -118,7 +118,8 @@ final class GameEngineLibTests: XCTestCase {
     }
     XCTAssertEqual(destroyed.count, 3)
     XCTAssertEqual(simulation.state.session.slices, slices - 3)
-    XCTAssertEqual(simulation.state.pumpkins.count, 3, "Destroyed entities are replenished")
+    XCTAssertTrue(1...3 ~= simulation.state.pumpkins.count, "A paced wave begins after the clear")
+    XCTAssertTrue(events.contains { if case .waveStarted = $0 { return true }; return false })
   }
 
   func testShriekConsumesOneChargeAndCanDestroyMultiplePumpkins() {
@@ -220,5 +221,122 @@ final class GameEngineLibTests: XCTestCase {
     for _ in 0..<30 {
       XCTAssertTrue([.stagger, .sweep, .breathingSpace].contains(composer.nextWave(progress: 0).pattern))
     }
+  }
+
+  func testMoonRushEndsAfterSixtySimulationSeconds() {
+    let configuration = SimulationConfiguration(ticksPerSecond: 1, targetPumpkinCount: 0)
+    var simulation = GameSimulation(seed: 4, mode: .moonRush, configuration: configuration)
+    for _ in 0..<59 { _ = simulation.step() }
+    XCTAssertFalse(simulation.state.isGameOver)
+    let events = simulation.step()
+    XCTAssertTrue(simulation.state.isGameOver)
+    XCTAssertTrue(events.contains(.gameOver(score: 0)))
+  }
+
+  func testSpiritZenCollisionsDoNotRemoveLives() {
+    let configuration = SimulationConfiguration(targetPumpkinCount: 1, ghostRadius: 2)
+    var simulation = GameSimulation(seed: 5, mode: .spiritZen, configuration: configuration)
+    let lives = simulation.state.session.lives
+    _ = simulation.step()
+    XCTAssertEqual(simulation.state.session.lives, lives)
+    XCTAssertEqual(simulation.state.statistics.collisions, 1)
+    XCTAssertFalse(simulation.state.isGameOver)
+  }
+
+  func testUsingAChargeDoesNotAwardPointsUntilTargetIsDestroyed() {
+    var session = GameSession()
+    XCTAssertTrue(session.useSliceCharge())
+    XCTAssertTrue(session.useBoomCharge())
+    XCTAssertEqual(session.score, 0)
+    XCTAssertEqual(session.slices, GameRules.initialSlices - 1)
+    XCTAssertEqual(session.booms, GameRules.initialBooms - 1)
+  }
+
+  func testPickupLifecycleIsDeterministicAndAwardsConfiguredScore() {
+    let configuration = SimulationConfiguration(
+      ticksPerSecond: 1,
+      targetPumpkinCount: 0,
+      ghostRadius: 2
+    )
+    var simulation = GameSimulation(seed: 123, configuration: configuration)
+    var events: [GameEvent] = []
+    for _ in 0..<10 { events += simulation.step() }
+    let collected = events.compactMap { event -> (Int, Int)? in
+      if case let .pickupCollected(_, kind, points) = event { return (kind, points) }
+      return nil
+    }
+    XCTAssertFalse(collected.isEmpty)
+    XCTAssertTrue(collected.allSatisfy { GameRules.sweetScores[$0.0] == $0.1 })
+    XCTAssertGreaterThan(simulation.state.session.score, 0)
+  }
+
+  func testInventoryRechargeUsesSimulationTicks() {
+    let configuration = SimulationConfiguration(
+      targetPumpkinCount: 1,
+      dashCooldownTicks: 0,
+      ghostRadius: 2,
+      sliceRechargeIntervalTicks: 2,
+      shriekRechargeIntervalTicks: 3
+    )
+    var simulation = GameSimulation(seed: 1, configuration: configuration)
+    _ = simulation.step(InputFrame(actions: [.dash(x: 1, y: 0), .shriek]))
+    let spentSlices = simulation.state.session.slices
+    let spentShrieks = simulation.state.session.booms
+    _ = simulation.step()
+    XCTAssertEqual(simulation.state.session.slices, min(GameRules.maximumSlices, spentSlices + 2))
+    _ = simulation.step()
+    XCTAssertEqual(simulation.state.session.booms, min(GameRules.maximumBooms, spentShrieks + 1))
+  }
+
+  func testOneHundredThousandGeneratedWavesRemainSafe() {
+    for seed in UInt64(0)..<5_000 {
+      var composer = WaveComposer(seed: seed)
+      for index in 0..<20 {
+        let wave = composer.nextWave(progress: Double(index) / 19)
+        XCTAssertTrue(WaveSafetyValidator.isSafe(wave, reactionTicks: 8))
+      }
+    }
+  }
+
+  func testSemanticInputRouterNormalizesDigitalMovementAndEdgesActions() {
+    var router = SemanticInputRouter()
+    router.set(.right, pressed: true)
+    router.set(.up, pressed: true)
+    router.set(.dash, pressed: true)
+    router.set(.dash, pressed: true)
+    let first = router.nextFrame().actions
+    XCTAssertEqual(first.count, 2)
+    guard case let .move(x, y) = first[0] else { return XCTFail("Expected movement") }
+    XCTAssertEqual((x * x + y * y).squareRoot(), 1, accuracy: 0.000_001)
+    XCTAssertEqual(first[1], .dash(x: x, y: y))
+    XCTAssertEqual(router.nextFrame().actions, [.move(x: x, y: y)])
+  }
+
+  func testSemanticInputRouterSupportsDirectDragDashTapAndCancellation() {
+    var router = SemanticInputRouter()
+    router.beginPointer(at: Vector2(x: 0.2, y: 0.8), timestamp: 1, controlsGhost: true)
+    router.movePointer(to: Vector2(x: 0.5, y: 0.5))
+    XCTAssertEqual(router.nextFrame().actions, [.moveTo(x: 0.5, y: 0.5)])
+    router.endPointer(at: Vector2(x: 0.5, y: 0.5), timestamp: 1.2)
+    XCTAssertEqual(router.nextFrame().actions.count, 1)
+
+    router.beginPointer(at: Vector2(x: 0.1, y: 0.1), timestamp: 2, controlsGhost: false)
+    router.endPointer(at: Vector2(x: 0.1, y: 0.1), timestamp: 2.1)
+    XCTAssertEqual(router.nextFrame().actions, [.shriek])
+    router.set(.left, pressed: true)
+    router.cancelAll()
+    XCTAssertTrue(router.nextFrame().actions.isEmpty)
+  }
+
+  func testTogglePauseIsSymmetric() {
+    let configuration = SimulationConfiguration(targetPumpkinCount: 0)
+    var simulation = GameSimulation(seed: 1, configuration: configuration)
+    XCTAssertEqual(simulation.step(InputFrame(actions: [.togglePause])), [.paused])
+    XCTAssertEqual(simulation.step(InputFrame(actions: [.togglePause])), [.resumed])
+  }
+
+  func testBossRaidStartsWithArmoredTargets() {
+    let simulation = GameSimulation(seed: 1, mode: .bossRaid)
+    XCTAssertTrue(simulation.state.pumpkins.contains(where: { $0.kind == .armored }))
   }
 }

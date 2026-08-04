@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 - 2026-08-03
+
+- Add paced wave scheduling to the authoritative simulation.
+- Add Classic Raid, Moon Rush, Spirit Zen, Daily Haunt, and Boss Raid rules.
+- Add target, armored, and cursed pumpkin roles.
+- Add near-miss rewards, frenzy multipliers, last-chance events, and statistics.
+- Add deterministic sweet pickup and inventory-recharge lifecycles.
+- Add a semantic input router for digital, pointer, touch, remote, and controller hosts.
+- Validate 100,000 generated wave windows in the expanded test suite.
+
 ## 0.2.0 - 2026-08-03
 
 - Add a deterministic fixed-timestep `GameSimulation`.
