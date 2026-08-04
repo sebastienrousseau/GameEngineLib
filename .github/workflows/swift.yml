@@ -12,5 +12,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: swift build -c release
-      - run: swift test --parallel --enable-code-coverage
+      - run: ./Scripts/check-coverage.sh
       - run: swift format lint --strict --recursive Sources Tests

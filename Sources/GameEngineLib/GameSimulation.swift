@@ -112,7 +112,7 @@ public struct GameSimulation: Sendable {
 
     append(UInt64(state.rulesVersion))
     append(state.seed)
-    append(UInt64(GameMode.allCases.firstIndex(of: state.mode) ?? 0))
+    append(UInt64(GameMode.allCases.firstIndex(of: state.mode)!))
     append(state.tick)
     append(state.isPaused ? 1 : 0)
     append(UInt64(state.session.score))
@@ -347,22 +347,18 @@ public struct GameSimulation: Sendable {
       state.tick >= nextWaveTick
     else { return }
     let progress = min(1, max(simulationTime / 180, Double(state.session.score) / 30_000))
-    var wave = waveComposer.nextWave(progress: progress)
-    if !WaveSafetyValidator.isSafe(
-      wave,
-      reactionTicks: max(1, configuration.minimumReactionTicks / 4)
-    ) {
-      wave = WavePlan(
-        pattern: .breathingSpace,
-        spawns: [WaveSpawn(lane: 3, delayTicks: 0, archetype: .standard)],
-        restTicks: configuration.minimumReactionTicks
+    let wave = waveComposer.nextWave(progress: progress)
+    assert(
+      WaveSafetyValidator.isSafe(
+        wave,
+        reactionTicks: max(1, configuration.minimumReactionTicks / 4)
       )
-    }
+    )
     state.waveIndex += 1
     scheduledSpawns = wave.spawns.map {
       ScheduledSpawn(tick: state.tick + UInt64($0.delayTicks), spawn: $0)
     }
-    nextWaveTick = state.tick + UInt64((wave.spawns.map(\.delayTicks).max() ?? 0) + wave.restTicks)
+    nextWaveTick = state.tick + UInt64(wave.spawns.map(\.delayTicks).max()! + wave.restTicks)
     events.append(.waveStarted(index: state.waveIndex, pattern: wave.pattern))
   }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2
+
+- Enforce 100% function and line coverage for the deterministic engine in CI.
+- Add focused coverage for frenzy, replay validation, input routing, ranking, settings, and effects.
+
 ## 0.4.1 - 2026-08-03
 
 - Fix a 32-bit integer shift trap when constructing seeded simulations on WebAssembly.

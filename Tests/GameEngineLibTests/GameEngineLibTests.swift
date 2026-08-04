@@ -49,6 +49,32 @@ final class GameEngineLibTests: XCTestCase {
     board.submit(LeaderboardEntry(playerName: "B", score: 900))
     XCTAssertNil(board.submit(LeaderboardEntry(playerName: "C", score: 10)))
     XCTAssertEqual(board.entries.map(\.score), [900, 100])
+    XCTAssertEqual(board.bestScore, 900)
+
+    let date = Date(timeIntervalSince1970: 1_000)
+    let earlier = LeaderboardEntry(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+      playerName: "Earlier",
+      score: 50,
+      achievedAt: date
+    )
+    let later = LeaderboardEntry(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+      playerName: "Later",
+      score: 50,
+      achievedAt: date.addingTimeInterval(1)
+    )
+    let tied = LeaderboardEntry(
+      id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+      playerName: "Tied",
+      score: 50,
+      achievedAt: date
+    )
+    XCTAssertEqual(
+      Leaderboard(entries: [later, earlier, tied]).entries.map(\.playerName),
+      ["Tied", "Earlier", "Later"]
+    )
+    XCTAssertEqual(Leaderboard().bestScore, 0)
   }
 
   func testSimulationIsDeterministicForSameSeedAndInputs() {
@@ -154,6 +180,32 @@ final class GameEngineLibTests: XCTestCase {
     let replay = GameReplay(rulesVersion: 999, seed: 1, mode: .classicRaid)
     XCTAssertThrowsError(try ReplayVerifier.run(replay, through: 1)) {
       XCTAssertEqual($0 as? ReplayVerificationError, .unsupportedRulesVersion(999))
+    }
+  }
+
+  func testReplayRejectsCommandsThatAreOutOfOrder() {
+    let replay = GameReplay(
+      seed: 1,
+      mode: .classicRaid,
+      commands: [
+        InputCommand(tick: 2, action: .shriek),
+        InputCommand(tick: 1, action: .pause),
+      ]
+    )
+    // The public initializer normalizes ordering; mutate an encoded payload to
+    // verify the defensive verifier guard independently.
+    let data = try! JSONEncoder().encode(replay)
+    var object = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+    object["commands"] = [
+      ["tick": 2, "action": ["shriek": [:]]],
+      ["tick": 1, "action": ["pause": [:]]],
+    ]
+    let unordered = try! JSONDecoder().decode(
+      GameReplay.self,
+      from: JSONSerialization.data(withJSONObject: object)
+    )
+    XCTAssertThrowsError(try ReplayVerifier.run(unordered, through: 2)) {
+      XCTAssertEqual($0 as? ReplayVerificationError, .commandOrder)
     }
   }
 
@@ -360,9 +412,18 @@ final class GameEngineLibTests: XCTestCase {
     router.beginPointer(at: Vector2(x: 0.1, y: 0.1), timestamp: 2, controlsGhost: false)
     router.endPointer(at: Vector2(x: 0.1, y: 0.1), timestamp: 2.1)
     XCTAssertEqual(router.nextFrame().actions, [.shriek])
+    router.beginPointer(at: Vector2(x: 0.2, y: 0.2), timestamp: 3, controlsGhost: true)
+    router.endPointer(at: Vector2(x: 0.21, y: 0.21), timestamp: 3.1)
+    XCTAssertEqual(router.nextFrame().actions, [.shriek])
     router.set(.left, pressed: true)
     router.cancelAll()
     XCTAssertTrue(router.nextFrame().actions.isEmpty)
+  }
+
+  func testSemanticInputRouterEnqueuesActions() {
+    var router = SemanticInputRouter()
+    router.enqueue(.pause)
+    XCTAssertEqual(router.nextFrame().actions, [.pause])
   }
 
   func testTogglePauseIsSymmetric() {
@@ -388,6 +449,11 @@ final class GameEngineLibTests: XCTestCase {
     XCTAssertEqual(settings.inputSensitivity, 1)
   }
 
+  func testSettingsDecodeEmptyPayloadWithAllDefaults() throws {
+    XCTAssertEqual(
+      try JSONDecoder().decode(GameSettings.self, from: Data("{}".utf8)), GameSettings())
+  }
+
   func testSettingsClampInputSensitivity() {
     XCTAssertEqual(GameSettings(inputSensitivity: -4).inputSensitivity, 0.5)
     XCTAssertEqual(GameSettings(inputSensitivity: 9).inputSensitivity, 1.5)
@@ -409,5 +475,28 @@ final class GameEngineLibTests: XCTestCase {
     XCTAssertTrue(update.isNewBest)
     XCTAssertFalse(update.completedMissionIDs.isEmpty)
     XCTAssertTrue(progress.unlockedCosmeticIDs.contains("trail.ember"))
+    XCTAssertEqual(progress.experienceWithinLevel, progress.experience % 500)
+  }
+
+  func testFrenzyStartsAtConfiguredComboThreshold() {
+    let configuration = SimulationConfiguration(
+      targetPumpkinCount: 4,
+      shriekRadius: 2,
+      frenzyComboThreshold: 1,
+      frenzyDurationTicks: 90
+    )
+    var simulation = GameSimulation(seed: 8, configuration: configuration)
+    let events = simulation.step(InputFrame(actions: [.shriek]))
+    XCTAssertTrue(events.contains(.frenzyStarted(durationTicks: 90)))
+    XCTAssertEqual(simulation.state.frenzyTicksRemaining, 89)
+  }
+
+  func testParticleVelocityUsesDocumentedBounds() {
+    var director = SpawnDirector(seed: 19)
+    for _ in 0..<100 {
+      let velocity = director.particleVelocity()
+      XCTAssertTrue(-85...85 ~= velocity.x)
+      XCTAssertTrue(-70...105 ~= velocity.y)
+    }
   }
 }
