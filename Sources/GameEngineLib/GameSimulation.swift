@@ -471,6 +471,18 @@ public struct GameSimulation: Sendable {
       state.shriekRechargeProgressTicks = 0
     }
   }
+
+  #if DEBUG
+    public mutating func injectForTesting(
+      pumpkins: [PumpkinState]? = nil,
+      pickup: PickupState? = nil,
+      lives: Int? = nil
+    ) {
+      if let pumpkins { state.pumpkins = pumpkins }
+      if let pickup { state.pickup = pickup }
+      if let lives { state.session = GameSession(lives: lives) }
+    }
+  #endif
 }
 
 private struct ScheduledSpawn: Sendable {

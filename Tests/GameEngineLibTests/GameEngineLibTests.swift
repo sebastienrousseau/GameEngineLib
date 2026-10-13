@@ -533,4 +533,71 @@ final class GameEngineLibTests: XCTestCase {
     XCTAssertTrue(
       frame.actions.contains(.slice(from: Vector2(x: 0.2, y: 0.2), to: Vector2(x: 0.5, y: 0.5))))
   }
+
+  func testSwordSliceCursedPumpkinTriggersDetonation() {
+    var simulation = GameSimulation(seed: 12)
+    let cursed = PumpkinState(
+      id: 999,
+      position: Vector2(x: 0.5, y: 0.5),
+      velocity: .zero,
+      radius: 0.05,
+      archetype: .standard,
+      kind: .cursed
+    )
+    simulation.injectForTesting(pumpkins: [cursed], lives: 2)
+    let events = simulation.step(
+      InputFrame(actions: [.slice(from: Vector2(x: 0.4, y: 0.5), to: Vector2(x: 0.6, y: 0.5))]))
+    XCTAssertTrue(
+      events.contains {
+        if case .cursedTriggered(let id, let lives) = $0 {
+          return id == 999 && lives == 1
+        }
+        return false
+      })
+    XCTAssertTrue(events.contains(.lastChance))
+  }
+
+  func testSwordSliceArmoredPumpkinDecreasesHitPoints() {
+    var simulation = GameSimulation(seed: 12)
+    let armored = PumpkinState(
+      id: 998,
+      position: Vector2(x: 0.5, y: 0.5),
+      velocity: .zero,
+      radius: 0.05,
+      archetype: .standard,
+      kind: .armored,
+      hitPoints: 2
+    )
+    simulation.injectForTesting(pumpkins: [armored])
+    let events = simulation.step(
+      InputFrame(actions: [.slice(from: Vector2(x: 0.4, y: 0.5), to: Vector2(x: 0.6, y: 0.5))]))
+    XCTAssertTrue(
+      events.contains {
+        if case .armoredHit(let id, let hp) = $0 {
+          return id == 998 && hp == 1
+        }
+        return false
+      })
+  }
+
+  func testSwordSliceCollectsSweetPickup() {
+    var simulation = GameSimulation(seed: 12)
+    let pickup = PickupState(
+      id: 997,
+      kind: 0,
+      position: Vector2(x: 0.5, y: 0.5),
+      speed: 0.1
+    )
+    simulation.injectForTesting(pumpkins: [], pickup: pickup)
+    let events = simulation.step(
+      InputFrame(actions: [.slice(from: Vector2(x: 0.4, y: 0.5), to: Vector2(x: 0.6, y: 0.5))]))
+    XCTAssertTrue(
+      events.contains {
+        if case .pickupCollected(let id, _, _) = $0 {
+          return id == 997
+        }
+        return false
+      })
+    XCTAssertNil(simulation.state.pickup)
+  }
 }
