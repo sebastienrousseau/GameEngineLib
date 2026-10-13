@@ -1,6 +1,17 @@
 # Changelog
 
-## 0.4.2
+## [0.4.3] - 2026-10-13
+
+### Added
+
+- Canonical README documentation conforming to repository gold standards.
+- Project governance documentation including AGENTS.md and CODE_OF_CONDUCT.md.
+
+### Changed
+
+- Updated license grants to dual Apache-2.0 OR MIT with aligned SPDX identifiers.
+
+## [0.4.2] - 2026-08-04
 
 - Enforce 100% function and line coverage for the deterministic engine in CI.
 - Add focused coverage for frenzy, replay validation, input routing, ranking, settings, and effects.
