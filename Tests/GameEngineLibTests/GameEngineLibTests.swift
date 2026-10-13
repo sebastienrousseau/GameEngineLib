@@ -499,4 +499,38 @@ final class GameEngineLibTests: XCTestCase {
       XCTAssertTrue(-70...105 ~= velocity.y)
     }
   }
+
+  func testSwordSliceDestroysPumpkinsWithoutDamagingPlayerAndAwardsScore() {
+    var simulation = GameSimulation(seed: 12)
+    guard let target = simulation.state.pumpkins.first else {
+      XCTFail("Expected at least one pumpkin spawned initially")
+      return
+    }
+    let initialLives = simulation.state.session.lives
+    let initialScore = simulation.state.session.score
+    let start = Vector2(x: target.position.x - 0.1, y: target.position.y)
+    let end = Vector2(x: target.position.x + 0.1, y: target.position.y)
+
+    let events = simulation.step(InputFrame(actions: [.slice(from: start, to: end)]))
+    XCTAssertTrue(
+      events.contains {
+        if case .destroyed(let id, _, let points) = $0 {
+          return id == target.id && points > 0
+        }
+        return false
+      })
+    XCTAssertEqual(
+      simulation.state.session.lives, initialLives,
+      "Slicing normal pumpkin must not damage the player")
+    XCTAssertGreaterThan(
+      simulation.state.session.score, initialScore, "Slicing pumpkin must award points")
+  }
+
+  func testSemanticInputRouterEnqueuesSliceActions() {
+    var router = SemanticInputRouter()
+    router.slice(from: Vector2(x: 0.2, y: 0.2), to: Vector2(x: 0.5, y: 0.5))
+    let frame = router.nextFrame()
+    XCTAssertTrue(
+      frame.actions.contains(.slice(from: Vector2(x: 0.2, y: 0.2), to: Vector2(x: 0.5, y: 0.5))))
+  }
 }
