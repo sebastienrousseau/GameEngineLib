@@ -82,6 +82,7 @@ public struct GameSimulation: Sendable {
       switch action {
       case .dash(let x, let y): performDash(Vector2(x: x, y: y), events: &events)
       case .shriek: performShriek(events: &events)
+      case .slice(let from, let to): performSlice(from: from, to: to, events: &events)
       case .move, .moveTo, .pause, .resume, .togglePause: break
       }
     }
@@ -200,6 +201,45 @@ public struct GameSimulation: Sendable {
       awardDestruction(id: id, events: &events)
     }
     events.append(.shrieked(origin: origin, destroyedCount: hitIDs.count))
+  }
+
+  private mutating func performSlice(
+    from: Vector2,
+    to: Vector2,
+    events: inout [GameEvent]
+  ) {
+    let bladeTolerance = configuration.ghostRadius * 0.75 + 0.02
+    let hitPumpkins = state.pumpkins.filter {
+      distanceFromPoint($0.position, toSegmentFrom: from, to: to)
+        <= $0.radius + bladeTolerance
+    }
+    for pumpkin in hitPumpkins {
+      guard let index = state.pumpkins.firstIndex(where: { $0.id == pumpkin.id }) else { continue }
+      if pumpkin.kind == .cursed {
+        state.pumpkins.remove(at: index)
+        if state.mode != .spiritZen { _ = state.session.collideWithPumpkin() }
+        state.statistics.collisions += 1
+        comboTracker.breakCombo()
+        events.append(.cursedTriggered(id: pumpkin.id, remainingLives: state.session.lives))
+        if state.session.lives == 1 { events.append(.lastChance) }
+      } else if pumpkin.hitPoints > 1 {
+        state.pumpkins[index].hitPoints -= 1
+        events.append(
+          .armoredHit(id: pumpkin.id, remainingHitPoints: state.pumpkins[index].hitPoints))
+      } else {
+        state.pumpkins.remove(at: index)
+        awardDestruction(id: pumpkin.id, events: &events)
+      }
+    }
+
+    if let pickup = state.pickup,
+      distanceFromPoint(pickup.position, toSegmentFrom: from, to: to) <= 0.05
+    {
+      let points = state.session.collectSweet(kind: pickup.kind)
+      state.pickup = nil
+      events.append(.pickupCollected(id: pickup.id, kind: pickup.kind, points: points))
+      scheduleNextPickup()
+    }
   }
 
   private mutating func destroyWithSlices(ids: [Int], events: inout [GameEvent]) {
@@ -431,6 +471,18 @@ public struct GameSimulation: Sendable {
       state.shriekRechargeProgressTicks = 0
     }
   }
+
+  #if DEBUG
+    public mutating func injectForTesting(
+      pumpkins: [PumpkinState]? = nil,
+      pickup: PickupState? = nil,
+      lives: Int? = nil
+    ) {
+      if let pumpkins { state.pumpkins = pumpkins }
+      if let pickup { state.pickup = pickup }
+      if let lives { state.session = GameSession(lives: lives) }
+    }
+  #endif
 }
 
 private struct ScheduledSpawn: Sendable {

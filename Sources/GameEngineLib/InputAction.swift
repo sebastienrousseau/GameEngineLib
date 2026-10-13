@@ -5,6 +5,8 @@ public enum InputAction: Equatable, Codable, Sendable {
   case move(x: Double, y: Double)
   /// Direct normalized playfield target used by touch, pointer, and motion hosts.
   case moveTo(x: Double, y: Double)
+  /// A continuous touch or pointer sword slice segment from start to end.
+  case slice(from: Vector2, to: Vector2)
   /// A discrete normalized dash vector.
   case dash(x: Double, y: Double)
   /// Spend a charge to destroy threats around the ghost.
@@ -52,6 +54,10 @@ public struct SemanticInputRouter: Sendable {
 
   public mutating func enqueue(_ action: InputAction) {
     pending.append(action)
+  }
+
+  public mutating func slice(from: Vector2, to: Vector2) {
+    pending.append(.slice(from: from, to: to))
   }
 
   public mutating func beginPointer(

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.4] - 2026-10-13
+
+### Added
+
+- Sword slice mechanic (`InputAction.slice(from:to:)`) for 1:1 touch/pointer fruit-ninja slicing.
+- Deterministic pumpkin slicing, combo tracking, and sweet collection without player damage penalties.
+- Comprehensive unit test coverage for all slice behaviors, maintaining 100% line and function coverage.
+
 ## [0.4.3] - 2026-10-13
 
 ### Added
